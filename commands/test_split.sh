@@ -7,7 +7,7 @@ python tools/split_checkpoints.py \
         --half
 
 # prepare the data
-# bash commands/test_data.sh
+bash commands/test_data.sh
 
 # runing the model
 bash commands/bloom-560m.sh
