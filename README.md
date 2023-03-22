@@ -1,3 +1,18 @@
+# What's new?
+updated in 2022/3/22
+1. add checkpoint splitting function in tools/split_checkpoints.py, the usage will be:
+```
+python tools/split_checkpoints.py \
+        --source_model bigscience/bloom-560m \ # the source model
+        --tp_size 2 \ # tensor parallelism size
+        --save_path /root/tmp_ckpt/bloom-560m_tp2 \ # target save directory
+        --half # transform the weight into fp16
+```
+3. add checkpointing loading method before deepspeed engine initialization
+    - add "--init-load" argument for initilization loading
+    - add "load_init_checkpoint" function in megatron/checkpointing.py
+4. add a full test script in commands/test_split.sh
+
 # What is this fork of Megatron-LM and Megatron-DeepSpeed
 
 This is a detached fork of https://github.com/microsoft/Megatron-DeepSpeed, which in itself is a fork of https://github.com/NVIDIA/Megatron-LM. The former integrates DeepSpeed into the original Megatron-LM code.
