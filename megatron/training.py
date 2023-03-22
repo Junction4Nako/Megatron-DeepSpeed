@@ -37,7 +37,7 @@ from megatron import update_num_microbatches
 from megatron import mpu
 from megatron import print_rank_0
 from megatron import print_rank_last
-from megatron.checkpointing import load_checkpoint
+from megatron.checkpointing import load_checkpoint, load_init_checkpoint
 from megatron.checkpointing import save_checkpoint
 from megatron.model.module import Float16Module
 from megatron.optimizer import get_megatron_optimizer
@@ -139,6 +139,8 @@ def pretrain(train_valid_test_dataset_provider,
     # Model, optimizer, and learning rate.
     timers('model-and-optimizer-setup').start()
     model, optimizer, lr_scheduler = setup_model_and_optimizer(model_provider)
+    # torch.save(optimizer.state_dict(), '/root/tmp/opt_before.pt')
+    # return None
     args.parameters_in_billions_no_embedding = get_parameters_in_billions(model, exclude_embeddings=True)
     print_rank_0(f'estimated model parameters: {get_parameters_in_billions(model)}')
     print_rank_0(f'estimated model parameters without embeddings: {get_parameters_in_billions(model, exclude_embeddings=True)}')
@@ -282,6 +284,8 @@ def get_model(model_provider_func):
     for model_module in model:
         for param in model_module.parameters():
             mpu.set_defaults_if_not_set_tensor_model_parallel_attributes(param)
+        # for param in model_module.tied_modules['embed'].parameters():
+        #     param.requires_grad = False
 
     # # Print number of parameters.
     # Moved to `train` with extras
@@ -410,6 +414,13 @@ def setup_model_and_optimizer(model_provider_func):
         lr_scheduler = get_learning_rate_scheduler(optimizer)
 
 
+    if args.init_load is not None:
+        # with a initial GPTmodule for loading before deepspeed or other things
+        print_rank_0('Found init checkpoint in {}'.format(args.init_load))
+        print_rank_0('length {}'.format(len(model)))
+        load_init_checkpoint(model[0], load_arg='init_load', strict=True)
+
+    
     if args.deepspeed:
         print_rank_0("DeepSpeed is enabled.")
         #pp = mpu.get_pipeline_model_parallel_world_size()
@@ -421,6 +432,8 @@ def setup_model_and_optimizer(model_provider_func):
         if args.universal_checkpoint:
             config["checkpoint"] = {"load_universal": True}
 
+        print('learning rate {}'.format(args.lr))
+        print(optimizer)
         model, optimizer, _, lr_scheduler = deepspeed.initialize(
             model=model[0],
             optimizer=optimizer,
@@ -441,6 +454,7 @@ def setup_model_and_optimizer(model_provider_func):
             assert model.grid.get_data_parallel_rank() == mpu.get_data_parallel_rank()
         model = [model]
 
+    
     if args.load is not None:
         timers = get_timers()
         # Extra barrier is added to make sure all ranks report the
@@ -503,6 +517,7 @@ def train_step(forward_step_func, data_iterator,
 
     if args.deepspeed:
         assert isinstance(model[0], deepspeed.PipelineEngine), model
+        # print(model[0].module)
         loss = model[0].train_batch(data_iter=data_iterator)
         skipped_iter = 0
         grad_norm = model[0].get_global_grad_norm()

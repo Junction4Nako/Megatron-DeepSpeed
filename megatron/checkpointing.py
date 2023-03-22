@@ -264,6 +264,22 @@ def fix_query_key_value_ordering(model, checkpoint_version):
         print_rank_0(" succesfully fixed query-key-values ordering for"
                     " checkpoint version {}".format(checkpoint_version))
 
+def load_init_checkpoint(model, load_arg='init_load', strict=True):
+    """Load a model checkpoint without deepspeed
+    strict (bool): whether to strictly enforce that the keys in
+        :attr:`state_dict` of the checkpoint match the names of
+        parameters and buffers in model.
+    """
+    args = get_args()
+    load_dir = getattr(args, load_arg)
+    from deepspeed.runtime.pipe.module import PipelineModule
+    from deepspeed.runtime.checkpoint_engine.torch_checkpoint_engine import TorchCheckpointEngine
+    assert isinstance(model, PipelineModule)
+    load_engine = TorchCheckpointEngine()
+    model.load_state_dir(load_dir=load_dir,
+                        strict=strict,
+                        checkpoint_engine=load_engine)
+
 def load_checkpoint(model, optimizer, lr_scheduler, load_arg='load', strict=True):
     """Load a model checkpoint and return the iteration.
     strict (bool): whether to strictly enforce that the keys in
@@ -274,8 +290,9 @@ def load_checkpoint(model, optimizer, lr_scheduler, load_arg='load', strict=True
     load_dir = getattr(args, load_arg)
 
     if args.deepspeed:
-        load_optimizer_states = False if args.no_load_optim else True
-        loaded_dir, state_dict = model[0].load_checkpoint(load_dir, load_optimizer_states=load_optimizer_states)
+        load_optimizer_states = False if args.no_load_optim or args.finetune else True
+        load_lr_scheduler = False if args.finetune else True
+        loaded_dir, state_dict = model[0].load_checkpoint(load_dir, load_optimizer_states=load_optimizer_states, load_lr_scheduler_states=load_lr_scheduler)
         if loaded_dir is None:
             print_rank_0('WARNING: could not find the metadata file {} '.format(
                 load_dir))
