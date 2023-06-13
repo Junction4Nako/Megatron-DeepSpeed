@@ -13,6 +13,15 @@ python tools/split_checkpoints.py \
     - add "load_init_checkpoint" function in megatron/checkpointing.py
 4. add a full test script in commands/test_split.sh
 
+updated in 2022/6/13
+1. add a checkpoint merge function in tools/merge_checkpoints.py, the usage will be:
+```
+python tools/merge_checkpoints.py \
+        --source_model SPLITTED_DIR \ # the checkpoint with layer_xx-model_xx-model_states.pt
+        --save_path full_pytorch_model.bin \ # target save file
+```
+this script will generate a full pytorch state_dict file for quick usage
+
 # What is this fork of Megatron-LM and Megatron-DeepSpeed
 
 This is a detached fork of https://github.com/microsoft/Megatron-DeepSpeed, which in itself is a fork of https://github.com/NVIDIA/Megatron-LM. The former integrates DeepSpeed into the original Megatron-LM code.
